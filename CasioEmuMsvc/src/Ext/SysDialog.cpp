@@ -344,6 +344,55 @@ std::function<void(std::filesystem::path)> SystemDialogs::folderSaveCallback;
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#include <fstream>
+
+extern "C" {
+    void onFileSelected(const char* path, const unsigned char* data, int dataLength) {
+        if (SystemDialogs::fileOpenCallback) {
+            std::filesystem::path tempDir = "./tmp";
+            std::filesystem::create_directories(tempDir);
+            std::filesystem::path fileName = std::filesystem::path(path).filename();
+            std::filesystem::path tempPath = tempDir / fileName;
+            
+            std::ofstream out(tempPath, std::ios::binary);
+            if (out) {
+                out.write((const char*)data, dataLength);
+                out.close();
+                SystemDialogs::fileOpenCallback(tempPath);
+            }
+            
+            std::error_code ec;
+            std::filesystem::remove(tempPath, ec);
+            std::filesystem::remove(tempDir, ec);
+        }
+    }
+    
+    void onFileSaved(const char* path) {
+        if (SystemDialogs::fileSaveCallback) {
+            SystemDialogs::fileSaveCallback(std::filesystem::path(path));
+        }
+    }
+    
+    void onFolderSelected(const char* path) {
+        if (SystemDialogs::folderOpenCallback) {
+            SystemDialogs::folderOpenCallback(std::filesystem::path(path));
+        }
+    }
+    
+    void onFolderSaved(const char* path) {
+        if (SystemDialogs::folderSaveCallback) {
+            SystemDialogs::folderSaveCallback(std::filesystem::path(path));
+        }
+    }
+    
+    void onImportFailed() {
+        // Handled or logged
+    }
+    
+    void onExportFailed() {
+        // Handled or logged
+    }
+}
 
 @interface SysDialogDelegate : NSObject <UIDocumentPickerDelegate>
 @property (nonatomic, assign) std::function<void(std::filesystem::path)> callback;

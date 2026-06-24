@@ -7,6 +7,7 @@
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 #import <CoreText/CoreText.h>
 #import <CoreGraphics/CoreGraphics.h>
 
@@ -109,9 +110,6 @@ float getSafeTop() {
         NSArray *documentTypes = @[(NSString *)kUTTypeItem];
         UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeExportToService];
         picker.delegate = self;
-        if (@available(iOS 11.0, *)) {
-            picker.allowsContentCreation = YES;
-        }
         [[self rootViewController] presentViewController:picker animated:YES completion:nil];
     });
 }
