@@ -1,4 +1,5 @@
 #pragma once
+#include "Config.hpp"
 #include "Localization.h"
 #include <filesystem>
 #include <imgui.h>
