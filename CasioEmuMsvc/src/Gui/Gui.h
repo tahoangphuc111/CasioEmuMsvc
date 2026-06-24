@@ -2,6 +2,8 @@
 #include "Config.hpp"
 #include "Localization.h"
 #include <filesystem>
+#include <cstdlib>
+#include <cstring>
 #include <imgui.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <iostream>
