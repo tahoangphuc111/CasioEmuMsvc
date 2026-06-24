@@ -377,6 +377,7 @@ elseif(BUILD_EXECUTABLE)
             "-framework Foundation"
             "-framework UIKit"
             "-framework CoreGraphics"
+            "-framework CoreText"
             "-framework QuartzCore"
             "-framework Metal"
             "-framework ImageIO"

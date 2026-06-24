@@ -26,5 +26,6 @@ extern "C" void openFileDialog();
 extern "C" void saveFileDialog(const char* preferredName);
 extern "C" void openFolderDialog();
 extern "C" void saveFolderDialog();
+extern "C" bool getIOSFontData(const char* fontName, unsigned char** outData, int* outLength);
 
 #endif /* iOSNativeBridge_h */

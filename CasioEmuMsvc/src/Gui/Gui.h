@@ -7,6 +7,10 @@
 #include <string>
 #include <vector>
 
+#ifdef IOS
+extern "C" bool getIOSFontData(const char* fontName, unsigned char** outData, int* outLength);
+#endif
+
 // -----------------------------------------------------------------------------
 // 辅助：通用范围定义
 // -----------------------------------------------------------------------------
@@ -227,8 +231,62 @@ inline void RebuildFont(float scale = 0.0f) {
 
 	// 1. 加载等宽基础字体 (Monospace Base)
 	// 这是改动最大的地方，确保英文和代码符号绝对等宽
-	std::string mono_font_path = GetMonospaceFontPath();
 	bool base_loaded = false;
+
+#ifdef IOS
+	unsigned char* fontData = nullptr;
+	int fontLength = 0;
+	bool loaded = false;
+
+	std::vector<std::string> monoCandidates = {
+		"Menlo-Regular",
+		"CourierNewPSMT",
+		"Courier"
+	};
+
+	for (const auto& name : monoCandidates) {
+		if (getIOSFontData(name.c_str(), &fontData, &fontLength)) {
+			loaded = true;
+			printf("[Ui][Info] Loaded iOS System Monospace Font: %s (%d bytes)\n", name.c_str(), fontLength);
+			break;
+		}
+	}
+
+	if (loaded && fontData && fontLength > 0) {
+		io.Fonts->AddFontFromMemoryTTF(fontData, fontLength, 15 * scale, &config, io.Fonts->GetGlyphRangesDefault());
+		base_loaded = true;
+
+		auto load_merged_range = [&](const ImWchar* ranges, const char* name) {
+			unsigned char* dupData = (unsigned char*)malloc(fontLength);
+			if (dupData) {
+				memcpy(dupData, fontData, fontLength);
+				config.MergeMode = true;
+				io.Fonts->AddFontFromMemoryTTF(dupData, fontLength, 15 * scale, &config, ranges);
+				config.MergeMode = false;
+				printf("[Ui][Info] Merged iOS System Monospace Font (%s) with custom ranges\n", name);
+			}
+		};
+
+		if ("Localization.LoadVietnamese"_l == "1" || "Localization.LoadVietnamese"_l == "true") {
+			load_merged_range(io.Fonts->GetGlyphRangesVietnamese(), "Vietnamese");
+		}
+		if ("Localization.LoadCyrillic"_l == "1" || "Localization.LoadCyrillic"_l == "true") {
+			load_merged_range(io.Fonts->GetGlyphRangesCyrillic(), "Cyrillic");
+		}
+		if ("Localization.LoadGreek"_l == "1" || "Localization.LoadGreek"_l == "true") {
+			load_merged_range(io.Fonts->GetGlyphRangesGreek(), "Greek");
+		}
+		if ("Localization.LoadThai"_l == "1" || "Localization.LoadThai"_l == "true") {
+			load_merged_range(io.Fonts->GetGlyphRangesThai(), "Thai");
+		}
+	}
+	else {
+		printf("[Ui][Warn] No system monospace font found! Falling back to ImGui Default (ProggyClean).\n");
+		io.Fonts->AddFontDefault(&config);
+		base_loaded = true;
+	}
+#else
+	std::string mono_font_path = GetMonospaceFontPath();
 
 	if (!mono_font_path.empty()) {
 		io.Fonts->AddFontFromFileTTF(mono_font_path.c_str(), 15 * scale, &config, io.Fonts->GetGlyphRangesDefault());
@@ -253,14 +311,50 @@ inline void RebuildFont(float scale = 0.0f) {
 	}
 	else {
 		printf("[Ui][Warn] No monospace font found! Falling back to ImGui Default (ProggyClean).\n");
-		// ImGui 自带的默认字体 (ProggyClean) 也是等宽的，是一个安全的最后防线
+		// ImGui 自带 of the default font (ProggyClean) 也是等宽的，是一个安全的最后防线
 		io.Fonts->AddFontDefault(&config);
 		base_loaded = true;
 	}
+#endif
 
 	// 2. 合并 CJK 字体
 	auto enable_cjk = "Localization.EnableCJK"_l;
 	if (enable_cjk == "1" || enable_cjk == "true") {
+#ifdef IOS
+		unsigned char* cjkFontData = nullptr;
+		int cjkFontLength = 0;
+		bool cjkLoaded = false;
+
+		std::vector<std::string> cjkCandidates;
+		if ("Localization.CJKPreference"_l == "JP") {
+			cjkCandidates = { "HiraginoSans-W3", "HiraginoSans-W4" };
+		}
+		else if ("Localization.CJKPreference"_l == "KR") {
+			cjkCandidates = { "AppleSDGothicNeo-Regular" };
+		}
+		else {
+			cjkCandidates = { "PingFangSC-Regular", "PingFangTC-Regular", "PingFangHK-Regular" };
+		}
+
+		for (const auto& name : cjkCandidates) {
+			if (getIOSFontData(name.c_str(), &cjkFontData, &cjkFontLength)) {
+				cjkLoaded = true;
+				printf("[Ui][Info] Loaded iOS System CJK Font: %s (%d bytes)\n", name.c_str(), cjkFontLength);
+				break;
+			}
+		}
+
+		if (cjkLoaded && cjkFontData && cjkFontLength > 0) {
+			config.MergeMode = true;
+			if ("Localization.CJKPreference"_l == "KR") {
+				io.Fonts->AddFontFromMemoryTTF(cjkFontData, cjkFontLength, 16 * scale, &config, io.Fonts->GetGlyphRangesKorean());
+			}
+			else {
+				io.Fonts->AddFontFromMemoryTTF(cjkFontData, cjkFontLength, 16 * scale, &config, GetCJKRanges());
+			}
+			config.MergeMode = false;
+		}
+#else
 		std::string cjk_font_path = GetCJKFontPath();
 
 		if (!cjk_font_path.empty()) {
@@ -275,6 +369,7 @@ inline void RebuildFont(float scale = 0.0f) {
 				io.Fonts->AddFontFromFileTTF(cjk_font_path.c_str(), 16 * scale, &config, GetCJKRanges());
 			}
 		}
+#endif
 	}
 
 	io.Fonts->Build();

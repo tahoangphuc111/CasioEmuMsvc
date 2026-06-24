@@ -3,6 +3,8 @@
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <CoreText/CoreText.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 // Include the header we just made
 #include "iOSNativeBridge.h"
@@ -232,4 +234,138 @@ void openFolderDialog() {
 void saveFolderDialog() {
     [[iOSNativeBridge sharedInstance] saveFolderDialog];
 }
+
+typedef struct FontHeader {
+    int32_t fVersion;
+    uint16_t fNumTables;
+    uint16_t fSearchRange;
+    uint16_t fEntrySelector;
+    uint16_t fRangeShift;
+} FontHeader;
+
+typedef struct TableEntry {
+    uint32_t fTag;
+    uint32_t fCheckSum;
+    uint32_t fOffset;
+    uint32_t fLength;
+} TableEntry;
+
+static uint32_t CalcTableCheckSum(const uint32_t *table, uint32_t numberOfBytesInTable) {
+    uint32_t sum = 0;
+    uint32_t nLongs = (numberOfBytesInTable + 3) / 4;
+    while (nLongs-- > 0) {
+       sum += CFSwapInt32HostToBig(*table++);
+    }
+    return sum;
+}
+
+extern "C" bool getIOSFontData(const char* fontName, unsigned char** outData, int* outLength) {
+    @autoreleasepool {
+        NSString *nameStr = [NSString stringWithUTF8String:fontName];
+        UIFont *uiFont = [UIFont fontWithName:nameStr size:14.0];
+        if (!uiFont) {
+            return false;
+        }
+        
+        CGFontRef cgFont = CTFontCopyGraphicsFont((__bridge CTFontRef)uiFont, NULL);
+        if (!cgFont) {
+            return false;
+        }
+        
+        CFArrayRef tags = CGFontCopyTableTags(cgFont);
+        if (!tags) {
+            CFRelease(cgFont);
+            return false;
+        }
+        
+        CFIndex tableCount = CFArrayGetCount(tags);
+        if (tableCount == 0) {
+            CFRelease(tags);
+            CFRelease(cgFont);
+            return false;
+        }
+        
+        size_t totalSize = sizeof(FontHeader) + sizeof(TableEntry) * tableCount;
+        BOOL containsCFFTable = NO;
+        
+        // First pass: calculate total size
+        for (CFIndex index = 0; index < tableCount; ++index) {
+            uint32_t aTag = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, index);
+            if (aTag == 'CFF ') {
+                containsCFFTable = YES;
+            }
+            
+            CFDataRef tableDataRef = CGFontCopyTableForTag(cgFont, aTag);
+            if (tableDataRef != NULL) {
+                totalSize += (CFDataGetLength(tableDataRef) + 3) & ~3;
+                CFRelease(tableDataRef);
+            }
+        }
+        
+        unsigned char *stream = (unsigned char *)malloc(totalSize);
+        if (!stream) {
+            CFRelease(tags);
+            CFRelease(cgFont);
+            return false;
+        }
+        
+        memset(stream, 0, totalSize);
+        char* dataStart = (char*)stream;
+        char* dataPtr = dataStart;
+        
+        // compute font header entries
+        uint16_t entrySelector = 0;
+        uint16_t searchRange = 1;
+        
+        while (searchRange < tableCount >> 1) {
+            entrySelector++;
+            searchRange <<= 1;
+        }
+        searchRange <<= 4;
+        
+        uint16_t rangeShift = (tableCount << 4) - searchRange;
+        
+        // write font header
+        FontHeader* offsetTable = (FontHeader*)dataPtr;
+        offsetTable->fVersion = containsCFFTable ? CFSwapInt32HostToBig(0x4F54544F) : CFSwapInt32HostToBig(0x00010000);
+        offsetTable->fNumTables = CFSwapInt16HostToBig((uint16_t)tableCount);
+        offsetTable->fSearchRange = CFSwapInt16HostToBig((uint16_t)searchRange);
+        offsetTable->fEntrySelector = CFSwapInt16HostToBig((uint16_t)entrySelector);
+        offsetTable->fRangeShift = CFSwapInt16HostToBig((uint16_t)rangeShift);
+        
+        dataPtr += sizeof(FontHeader);
+        
+        // write table directory
+        TableEntry* entry = (TableEntry*)dataPtr;
+        dataPtr += sizeof(TableEntry) * tableCount;
+        
+        for (CFIndex index = 0; index < tableCount; ++index) {
+            uint32_t aTag = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, index);
+            CFDataRef tableDataRef = CGFontCopyTableForTag(cgFont, aTag);
+            if (tableDataRef != NULL) {
+                size_t tableSize = CFDataGetLength(tableDataRef);
+                memcpy(dataPtr, CFDataGetBytePtr(tableDataRef), tableSize);
+                
+                entry->fTag = CFSwapInt32HostToBig((uint32_t)aTag);
+                entry->fCheckSum = CFSwapInt32HostToBig(CalcTableCheckSum((uint32_t *)dataPtr, (uint32_t)tableSize));
+                
+                uint32_t offset = (uint32_t)(dataPtr - dataStart);
+                entry->fOffset = CFSwapInt32HostToBig(offset);
+                entry->fLength = CFSwapInt32HostToBig((uint32_t)tableSize);
+                
+                dataPtr += (tableSize + 3) & ~3;
+                ++entry;
+                CFRelease(tableDataRef);
+            }
+        }
+        
+        CFRelease(tags);
+        CFRelease(cgFont);
+        
+        *outData = stream;
+        *outLength = (int)totalSize;
+        return true;
+    }
+}
+
 #endif
