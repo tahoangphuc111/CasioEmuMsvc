@@ -112,7 +112,11 @@ static bool IsPointInImGuiWindow(float x, float y) {
 	if (io.WantCaptureMouse || ImGui::IsAnyItemActive()) {
 		return true;
 	}
-	if (y < top_bar_size)
+	float topLimit = (float)top_bar_size;
+#ifdef IOS
+	topLimit += getSafeTop();
+#endif
+	if (y < topLimit)
 		return true;
 
 	for (int i = g.Windows.Size - 1; i >= 0; --i) {

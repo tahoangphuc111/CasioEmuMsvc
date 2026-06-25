@@ -430,7 +430,11 @@ void gui_loop() {
     //        ImGui::EndPopup();
     //    }
     // #endif
+#ifdef IOS
+    top_bar_size = (int)(ImGui::GetFrameHeight() + 8.0f);
+#else
     top_bar_size = ImGui::GetCursorPosY();
+#endif
 #if !defined(__ANDROID__) && !defined(IOS)
 	RenderStatusBar();
 #endif
