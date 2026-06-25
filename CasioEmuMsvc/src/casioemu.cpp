@@ -52,7 +52,7 @@
 #include "TouchMouseTranslator.h"
 
 #ifdef IOS
-#include "iOSNativeBridge.h"
+#include "IOSNativeBridge.h"
 #endif
 
 using namespace casioemu;

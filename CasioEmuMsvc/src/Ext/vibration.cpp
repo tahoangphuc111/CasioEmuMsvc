@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by 15874 on 2024/8/9.
 //
 #include "vibration.h"
@@ -53,7 +53,7 @@ extern "C"
 	}
 }
 #elif defined(IOS)
-#include "iOSNativeBridge.h"
+#include "IOSNativeBridge.h"
 
 void Vibration::vibrate(long milliseconds)
 {

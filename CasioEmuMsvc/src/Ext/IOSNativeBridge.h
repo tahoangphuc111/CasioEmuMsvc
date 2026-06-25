@@ -18,6 +18,9 @@ extern "C" void onAppForeground();
 extern "C" void onAppTerminate();
 
 extern "C" float getSafeTop();
+extern "C" float getSafeBottom();
+extern "C" float getSafeLeft();
+extern "C" float getSafeRight();
 
 // Functions callable from C++
 extern "C" void nativeVibrate(long milliseconds);

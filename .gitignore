@@ -389,3 +389,12 @@ build-parent-check/
 app/src/main/assets/
 
 build-ios/
+
+a.out
+test.cpp
+
+# OS generated files
+.DS_Store
+**/.DS_Store
+
+

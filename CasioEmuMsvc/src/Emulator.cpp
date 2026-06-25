@@ -12,7 +12,8 @@
 #include <string>
 
 #ifdef IOS
-#include "iOSNativeBridge.h"
+#include "IOSNativeBridge.h"
+#include <imgui.h>
 #endif
 
 namespace casioemu {
@@ -441,6 +442,43 @@ namespace casioemu {
 		SDL_GetRendererOutputSize(renderer, &render_w, &render_h);
 		SDL_RenderSetScale(renderer, (float)render_w / w, (float)render_h / h);
 
+#ifdef IOS
+		float safeTop = getSafeTop();
+		float safeBottom = getSafeBottom();
+		float safeLeft = getSafeLeft();
+		float safeRight = getSafeRight();
+
+		float toolbarHeight = 0.0f;
+		if (ImGui::GetCurrentContext() != nullptr) {
+			toolbarHeight = ImGui::GetFrameHeight() + 8.0f;
+		} else {
+			toolbarHeight = 35.0f; // fallback
+		}
+
+		float topOffset = safeTop + toolbarHeight;
+		float bottomOffset = safeBottom;
+		float leftOffset = safeLeft;
+		float rightOffset = safeRight;
+
+		// Ensure minimum margins for iPad Stage Manager / iOS rounded corners
+		if (bottomOffset < 16.0f) bottomOffset = 16.0f;
+		if (leftOffset < 16.0f) leftOffset = 16.0f;
+		if (rightOffset < 16.0f) rightOffset = 16.0f;
+
+		float usable_w = (float)w - leftOffset - rightOffset;
+		float usable_h = (float)h - topOffset - bottomOffset;
+		if (usable_w < 10.0f) usable_w = 10.0f;
+		if (usable_h < 10.0f) usable_h = 10.0f;
+
+		auto wf = (double)usable_w / interface_background.src.w;
+		auto hf = (double)usable_h / interface_background.src.h;
+		auto uf = std::min(wf, hf);
+		SDL_Rect dest{};
+		dest.w = interface_background.src.w * uf;
+		dest.h = interface_background.src.h * uf;
+		dest.x = leftOffset + (usable_w - dest.w) / 2;
+		dest.y = topOffset + (usable_h - dest.h) / 2;
+#else
 		auto wf = (double)w / interface_background.src.w;
 		auto hf = (double)h / interface_background.src.h;
 		auto uf = std::min(wf, hf);
@@ -449,6 +487,7 @@ namespace casioemu {
 		dest.h = interface_background.src.h * uf;
 		dest.x = (w - dest.w) / 2;
 		dest.y = (h - dest.h) / 2;
+#endif
 		if (!calculator_as_tab.load()) {
 			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 			SDL_RenderClear(renderer);

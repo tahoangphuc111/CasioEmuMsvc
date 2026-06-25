@@ -12,7 +12,7 @@
 #import <CoreGraphics/CoreGraphics.h>
 
 // Include the header we just made
-#include "iOSNativeBridge.h"
+#include "IOSNativeBridge.h"
 
 // Singleton to act as the UIDocumentPickerDelegate
 @interface iOSNativeBridge : NSObject <UIDocumentPickerDelegate>
@@ -94,6 +94,31 @@ float getSafeTop() {
     }
     return 20.0f;
 }
+
+float getSafeBottom() {
+    if (@available(iOS 11.0, *)) {
+        UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
+        return window.safeAreaInsets.bottom;
+    }
+    return 0.0f;
+}
+
+float getSafeLeft() {
+    if (@available(iOS 11.0, *)) {
+        UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
+        return window.safeAreaInsets.left;
+    }
+    return 0.0f;
+}
+
+float getSafeRight() {
+    if (@available(iOS 11.0, *)) {
+        UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
+        return window.safeAreaInsets.right;
+    }
+    return 0.0f;
+}
+
 
 - (void)openFileDialog {
     dispatch_async(dispatch_get_main_queue(), ^{
